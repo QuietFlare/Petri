@@ -1,0 +1,57 @@
+# ---------------------------------------------------------------------------
+# Nextflow runtime artifacts
+# ---------------------------------------------------------------------------
+# work/ is the engine's scratch directory — one hashed subdirectory per task.
+# It routinely reaches several GB and is fully reproducible from a pipeline run.
+work/
+.nextflow/
+.nextflow.log
+.nextflow.log.*
+
+# Pipeline outputs. results/<run_id>/ is created per run by the server.
+results/
+results_weblog/
+
+# ---------------------------------------------------------------------------
+# Server runtime state
+# ---------------------------------------------------------------------------
+# Raw weblog payloads, per-run task state, Nextflow stdout/stderr, PID files.
+logs/
+
+# ---------------------------------------------------------------------------
+# Secrets
+# ---------------------------------------------------------------------------
+.env
+.env.local
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# ---------------------------------------------------------------------------
+# Node
+# ---------------------------------------------------------------------------
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# ---------------------------------------------------------------------------
+# Editors and OS
+# ---------------------------------------------------------------------------
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# Nextflow lineage store and local assistant settings
+.lineage/
+.claude/
+results_5donor/

@@ -1,0 +1,12 @@
+# Petri server dependencies
+#
+# Install with:
+#   pip install -r requirements.txt
+
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.6
+
+# Optional — only needed for the /runs/{run_id}/analyze endpoint.
+# The server starts and runs pipelines normally without it; the analyze
+# endpoint returns HTTP 503 if the SDK or ANTHROPIC_API_KEY is missing.
+anthropic>=0.40.0
