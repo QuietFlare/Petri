@@ -54,4 +54,5 @@ dist-ssr/
 # Nextflow lineage store and local assistant settings
 .lineage/
 .claude/
+CLAUDE.md
 results_5donor/

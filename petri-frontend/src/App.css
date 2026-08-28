@@ -532,3 +532,22 @@ body {
 }
 .bench-ask-input:focus { outline: none; border-color: #3b82f6; }
 .bench-answer { white-space: pre-wrap; }
+
+/* Pipeline preset selector, next to the Run button */
+.run-controls {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.pipeline-select {
+  padding: 0.55rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-size: 0.9rem;
+  background: #fff;
+  max-width: 28rem;
+}
+.pipeline-select:disabled { opacity: 0.5; }

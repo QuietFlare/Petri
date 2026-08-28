@@ -1,0 +1,49 @@
+{
+  "_comment": "Launchable pipeline presets. POST /run picks one by key (default: sarek). Each entry is exactly the arguments Petri appends to `nextflow`; paths are relative to the Petri directory the server runs from. Adding a pipeline = adding an entry here, no server change. The frontend Catalog view is a read-only reference of all nf-core pipelines; this file is the short list Petri can actually launch.",
+  "sarek": {
+    "label": "sarek · germline variants · 5 synthetic donors (test data)",
+    "pipeline": "nf-core/sarek",
+    "revision": "3.8.1",
+    "profile": "test,docker",
+    "args": ["--input", "../clew/donors.csv"]
+  },
+  "viralrecon": {
+    "label": "viralrecon · SARS-CoV-2 amplicon · 5 real COG-UK samples",
+    "pipeline": "nf-core/viralrecon",
+    "revision": "2.6.0",
+    "profile": "docker",
+    "_why_this_revision": "3.0.0 defaults --genome to MN908947.3 whose config carries an empty bowtie2_index, and its strict schema validation rejects the empty string no matter what we pass. 2.6.0 is the battle-tested COG-UK-era release and validates clean.",
+    "args": [
+      "--input", "samplesheets/viralrecon_coguk.csv",
+      "--platform", "illumina",
+      "--protocol", "amplicon",
+      "--genome", "MN908947.3",
+      "--primer_set", "artic",
+      "--primer_set_version", "3",
+      "--skip_assembly"
+    ]
+  },
+  "differentialabundance": {
+    "label": "differentialabundance · wt vs cox4Δ DE · consumes the rnaseq run's count matrix",
+    "pipeline": "nf-core/differentialabundance",
+    "revision": "2.0.0",
+    "profile": "rnaseq,docker",
+    "_why": "The cross-run chain: this run's --matrix IS the published output of rnaseq run 44cee82e. One withdrawal upstream must reach every DE result here — the first pipeline-boundary crossing.",
+    "args": [
+      "--input", "samplesheets/diffabundance_yeast.csv",
+      "--contrasts", "samplesheets/diffabundance_contrasts.csv",
+      "--matrix", "results/44cee82e-395c-4b2c-9444-a6058ad6748c/star_salmon/salmon.merged.gene_counts.tsv",
+      "--gtf", "s3://ngi-igenomes/igenomes/Saccharomyces_cerevisiae/Ensembl/R64-1-1/Annotation/Genes/genes.gtf"
+    ]
+  },
+  "rnaseq": {
+    "label": "rnaseq · yeast wild-type vs cox4Δ · 4 real samples (PRJNA589326)",
+    "pipeline": "nf-core/rnaseq",
+    "revision": "3.26.0",
+    "profile": "docker",
+    "args": [
+      "--input", "samplesheets/rnaseq_yeast.csv",
+      "--genome", "R64-1-1"
+    ]
+  }
+}

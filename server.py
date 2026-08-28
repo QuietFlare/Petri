@@ -95,6 +95,20 @@ RESULTS_DIR.mkdir(exist_ok=True)
 
 RUN_MAP_FILE = LOG_DIR / "run_map.json"
 
+# Launchable pipeline presets. The frontend's Catalog view lists every nf-core
+# pipeline as reference; this file is the short list Petri can actually start.
+# Loaded once at import: presets change rarely, and a syntax error in the file
+# should fail loudly at startup, not at the moment someone clicks Run.
+PIPELINES_FILE = Path("pipelines.json")
+PIPELINES: dict[str, dict] = {}
+if PIPELINES_FILE.exists():
+    PIPELINES = {
+        key: value
+        for key, value in json.loads(PIPELINES_FILE.read_text()).items()
+        if not key.startswith("_")  # "_comment" and friends
+    }
+DEFAULT_PIPELINE = "sarek"
+
 # run_id values come from the URL, and several endpoints use them to build
 # filesystem paths. Only ever accept the UUIDs we generate ourselves, plus the
 # "orphan_<hex>" form created for events from an unrecognised Nextflow run.
@@ -190,13 +204,40 @@ def _short_name(full_name: str) -> str:
 # Routes
 # ---------------------------------------------------------------------------
 
+@app.get("/pipelines")
+async def list_pipelines():
+    """The presets the Run button can launch, in pipelines.json order."""
+    return {
+        "default": DEFAULT_PIPELINE,
+        "pipelines": [
+            {"key": key, "label": p.get("label", key), "pipeline": p.get("pipeline"),
+             "revision": p.get("revision")}
+            for key, p in PIPELINES.items()
+        ],
+    }
+
+
 @app.post("/run")
-async def start_run():
+async def start_run(request: Request):
     """
     Launch Nextflow and return a run_id for the browser to track.
+    Body may name a preset: {"pipeline": "viralrecon"}; default is sarek.
     Waits 3 seconds to catch immediate startup failures before returning.
     """
     global _pending_run_id
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}  # empty body = default pipeline, the pre-preset behaviour
+    preset_key = body.get("pipeline") or DEFAULT_PIPELINE
+    preset = PIPELINES.get(preset_key)
+    if preset is None:
+        return JSONResponse(
+            {"error": f"Unknown pipeline {preset_key!r}. "
+                      f"Known: {', '.join(PIPELINES) or 'none (pipelines.json missing)'}"},
+            status_code=400,
+        )
 
     our_run_id = str(uuid.uuid4())
     runs[our_run_id] = {}
@@ -214,30 +255,26 @@ async def start_run():
             status_code=500,
         )
 
-    cmd = [
-        str(nxf_bin),
-        # -c must come BEFORE the `run` subcommand. Placed after it, Nextflow
-        # silently ignores it and the lineage store is never created.
-        "-c", str(Path("../clew/lineage.config").resolve()),
-    ]
+    cmd = [str(nxf_bin)]
 
-    # Petri-managed plugins (see plugins.config for what's enabled and why).
-    # Nextflow merges multiple -c files in order, so this composes with the
-    # lineage config above. The file is optional: remove it to run bare.
+    # Petri-managed run config: plugins and native data lineage (see
+    # plugins.config for what's enabled and why). -c must come BEFORE the
+    # `run` subcommand; placed after it, Nextflow silently ignores it. The
+    # file is optional: remove it to run bare.
     plugins_config = Path("plugins.config").resolve()
     if plugins_config.exists():
         cmd += ["-c", str(plugins_config)]
 
     cmd += [
-        "run", "nf-core/sarek",
-        "-r", "3.8.1",
-        "-profile", "test,docker",
+        "run", preset["pipeline"],
+        "-r", preset["revision"],
+        "-profile", preset["profile"],
         "--outdir", str(outdir),
         "-with-weblog", "http://127.0.0.1:8000/events",
         "-with-trace", str(outdir / "trace.txt"),
         "-with-report", str(outdir / "report.html"),
         "-with-timeline", str(outdir / "timeline.html"),
-        "--input", str(Path("../clew/donors.csv").resolve()),
+        *preset.get("args", []),
     ]
 
     env = os.environ.copy()
@@ -261,9 +298,16 @@ async def start_run():
             status_code=500,
         )
 
-    log.info("Launched Nextflow run %s (pid %s)  outdir=%s", our_run_id[:8], proc.pid, outdir)
+    # Record which preset launched this run: the dashboard and Clew both need
+    # to know which samplesheet and pipeline a run_id corresponds to later.
+    (LOG_DIR / f"{our_run_id}_pipeline.json").write_text(
+        json.dumps({"key": preset_key, **preset}, indent=2)
+    )
+
+    log.info("Launched %s run %s (pid %s)  outdir=%s",
+             preset_key, our_run_id[:8], proc.pid, outdir)
     asyncio.create_task(_monitor_process(proc, our_run_id))
-    return {"run_id": our_run_id}
+    return {"run_id": our_run_id, "pipeline": preset_key}
 
 
 @app.post("/run/{run_id}/stop")

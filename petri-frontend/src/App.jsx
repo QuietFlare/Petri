@@ -47,6 +47,21 @@ export default function App() {
   // before MultiQC runs, so this, not stage completion, gates Analyze.
   const [analyzeAvailable, setAnalyzeAvailable] = useState(false);
 
+  // Launchable presets from the server's pipelines.json. Distinct from the
+  // Catalog view, which lists every nf-core pipeline as read-only reference.
+  const [pipelines, setPipelines] = useState([]);
+  const [selectedPipeline, setSelectedPipeline] = useState("");
+
+  useEffect(() => {
+    fetch(`${SERVER}/pipelines`)
+      .then((res) => res.json())
+      .then((body) => {
+        setPipelines(body.pipelines || []);
+        setSelectedPipeline(body.default || body.pipelines?.[0]?.key || "");
+      })
+      .catch(() => setPipelines([])); // server down: Run still works, default preset
+  }, []);
+
   const wsRef = useRef(null);
   const receivedEventsRef = useRef(false);
   // Set to true before we deliberately close the socket (new run, stop, unmount)
@@ -180,7 +195,11 @@ export default function App() {
     wsRef.current?.close();
 
     try {
-      const res = await fetch(`${SERVER}/run`, { method: "POST" });
+      const res = await fetch(`${SERVER}/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pipeline: selectedPipeline }),
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || `Server returned ${res.status}`);
@@ -263,7 +282,10 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <h1>Petri</h1>
-        <p className="subtitle">nf-core/sarek · test profile</p>
+        <p className="subtitle">
+          {pipelines.find((p) => p.key === selectedPipeline)?.label ||
+            "nf-core pipeline dashboard"}
+        </p>
 
         <nav className="view-tabs">
           <button
@@ -295,13 +317,30 @@ export default function App() {
                 Stop Pipeline
               </button>
             ) : (
-              <button
-                className="run-btn"
-                onClick={handleRun}
-                disabled={appStatus === "starting" || appStatus === "reconnecting"}
-              >
-                {appStatus === "starting" ? "Starting…" : "Run Pipeline"}
-              </button>
+              <div className="run-controls">
+                {pipelines.length > 1 && (
+                  <select
+                    className="pipeline-select"
+                    value={selectedPipeline}
+                    onChange={(e) => setSelectedPipeline(e.target.value)}
+                    disabled={appStatus === "starting"}
+                    title="Which pipelines.json preset the Run button launches"
+                  >
+                    {pipelines.map((p) => (
+                      <option key={p.key} value={p.key}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  className="run-btn"
+                  onClick={handleRun}
+                  disabled={appStatus === "starting" || appStatus === "reconnecting"}
+                >
+                  {appStatus === "starting" ? "Starting…" : "Run Pipeline"}
+                </button>
+              </div>
             )}
 
             {appStatus === "reconnecting" && (
